@@ -8,6 +8,7 @@
   ******************************************************************************
 */
 
+#include "../STM32F30x_I2C_CPAL_Driver/inc/stm32f30x_i2c_cpal.h"
 
 #include "stm32f30x.h"
 #include "stm32f3_discovery.h"
@@ -22,71 +23,87 @@
 int main(void)
 {
     USART_init();
-    I2C_init();
 
-    int i;
-    uint8_t data[2];
+    uint64_t i;
     uint16_t temp_distance;
 
+    //inicjalizacja transfer structures
+    CPAL_TransferTypeDef sonarRxStructure, sonarTxStructure;
+    uint8_t sonarRxBuffer[2], sonarTxBuffer[2];
+
+    sonarRxStructure.pbBuffer = sonarRxBuffer;
+    sonarRxStructure.wAddr1 = 0;
+    sonarRxStructure.wAddr2 = 0;
+
+    sonarTxStructure.pbBuffer = sonarTxBuffer;
+    sonarTxStructure.wAddr1 = SONAR_ADDRESS;
+    sonarRxStructure.wAddr2 = 0;
+
+    RCC_I2CCLKConfig(RCC_I2C1CLK_SYSCLK);
+
+	/* Configure the peripheral structure */
+	CPAL_I2C_StructInit(&I2C1_DevStructure); /* Set all fields to default values */
+	I2C1_DevStructure.CPAL_Mode = CPAL_MODE_MASTER;
+	I2C1_DevStructure.wCPAL_Options = CPAL_OPT_NO_MEM_ADDR;
+	I2C1_DevStructure.CPAL_ProgModel = CPAL_PROGMODEL_DMA;
+	I2C1_DevStructure.pCPAL_I2C_Struct->I2C_Timing = 0x10806291;
+	I2C1_DevStructure.pCPAL_TransferRx = & sonarRxStructure;
+	I2C1_DevStructure.pCPAL_TransferTx = & sonarTxStructure;
+//	/* Initialize CPAL peripheral with the selected parameters */
+	CPAL_I2C_Init(&I2C1_DevStructure);
 
 	while(1){
-		//SendText("Czesc");
+		//SendText("Czesciczolem");
+		for(i = 0; i < 10000; i++);
+
+		sonarTxBuffer[0] = 0x10;
+		sonarTxBuffer[1] = 0x02;
+		sonarTxStructure.wNumData = 2; /* Number of data to be written */
+		if (CPAL_I2C_Write(&I2C1_DevStructure) != CPAL_PASS)
+		{
+			USART_SendData(USART2, 'a');
+		/* I2C bus or peripheral is not able to start communication: Error management */
+		}
+
+		for(i = 0; i < 10000; i++);
+
+		sonarTxBuffer[0] = 0x20;
+		sonarTxStructure.wNumData = 1; /* Number of data to be written */
+		if (CPAL_I2C_Write(&I2C1_DevStructure) != CPAL_PASS)
+		{
+			USART_SendData(USART2, 'b');
+		/* I2C bus or peripheral is not able to start communication: Error management */
+		}
 
 
-		I2C_TransferHandling(I2Cx, SONAR_ADDRESS, 1, I2C_Reload_Mode, I2C_Generate_Start_Write);
+		while(I2C1_DevStructure.CPAL_State != CPAL_STATE_READY)
+		{
+		/* Application may perform other tasks while CPAL read operation is ongoing */
+		}
 
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TXIS) == RESET);
-		I2C_SendData(I2Cx, 0x10);
+		sonarRxStructure.wNumData = 2; /* Number of data to be read */
+		if (CPAL_I2C_Read(&I2C1_DevStructure) != CPAL_PASS)
+		{
+			USART_SendData(USART2, 'c');
+		/* I2C bus or peripheral is not able to start communication: Error management */
+		}
 
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TCR) == RESET);
+		/* Wait the end of transfer */
+		while(I2C1_DevStructure.CPAL_State != CPAL_STATE_READY)
+		{
+		/* Application may perform other tasks while CPAL read operation is ongoing */
+		}
+		/* At this point, data has been received, they can be used by the application
+		(compare, process…) */
 
-		I2C_TransferHandling(I2Cx, SONAR_ADDRESS, 1, I2C_AutoEnd_Mode, I2C_No_StartStop);
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TXIS) == RESET);
-
-		I2C_SendData(I2Cx, 0x02);
-
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF) == RESET);
-		I2C_ClearFlag(I2Cx, I2C_FLAG_STOPF);
-
-		for(i = 0; i < 100000; i++);
-
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_BUSY) == SET);
-
-		I2C_TransferHandling(I2Cx, SONAR_ADDRESS, 1, I2C_SoftEnd_Mode, I2C_Generate_Start_Write);
-
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TXIS) == RESET);
-
-		//Send the address of the register you wish to read
-		I2C_SendData(I2Cx, 0x20);
-
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TC) == RESET);
-
-		I2C_TransferHandling(I2Cx, SONAR_ADDRESS, 2, I2C_AutoEnd_Mode, I2C_Generate_Start_Read);
-
-        while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);
-	    data[0] = I2C_ReceiveData(I2C1);
-
-	    while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_RXNE) == RESET);
-	    data[1] = I2C_ReceiveData(I2C1);
-
-	    //Wait for the stop condition to be sent
-		while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF) == RESET);
-
-		//Clear the stop flag for next transfers
-		I2C_ClearFlag(I2Cx, I2C_FLAG_STOPF);
-
-
-		temp_distance = data[1] + (data[0] << 8);
+		temp_distance = sonarRxBuffer[1] + (sonarRxBuffer[0] << 8);
 
 		char array[6];
 		for (int i = 5; i >= 0; i--) {
-		    array[i] = temp_distance % 10 + '0';
-		    temp_distance /= 10;
+			array[i] = temp_distance % 10 + '0';
+			temp_distance /= 10;
 		}
-
-		//SendText(array);
-
-		for(i = 0; i < 100000; i++);
+		SendText(array);
 	}
 }
 

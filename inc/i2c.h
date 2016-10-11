@@ -24,6 +24,8 @@
 #define I2Cx_SCL_SOURCE               GPIO_PinSource6
 #define I2Cx_SCL_AF                   GPIO_AF_I2C1
 
+#define SONAR_ADDRESS				  0x05
+
 void I2C_init();
 
 /**************************************************************************************/
@@ -46,5 +48,9 @@ void I2C_NVIC_Configuration(void);
 
 void I2C1_ER_IRQHandler(void);
 void I2C1_EV_IRQHandler(void);
+
+
+void SONAR_I2C_StartMeasurement(uint8_t slaveAddr);
+
 
 #endif /* I2C_H_ */

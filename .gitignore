@@ -29,6 +29,7 @@
 *.hex
 
 # Debug files
+[Rr]elease/
 [Dd]ebug/
 *.dSYM/
 *.su

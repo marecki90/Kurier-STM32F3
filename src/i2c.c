@@ -96,9 +96,19 @@ void I2C_NVIC_Configuration(void){
 	NVIC_Init(&NVIC_InitStructure);
 }
 
-void I2C1_ER_IRQHandler(void){
+void SONAR_I2C_StartMeasurement(uint8_t slaveAddr){
+	I2C_TransferHandling(I2Cx, slaveAddr, 1, I2C_Reload_Mode, I2C_Generate_Start_Write);
 
-}
+	while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TXIS) == RESET);
+	I2C_SendData(I2Cx, 0x10);
 
-void I2C1_EV_IRQHandler(void){
+	while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TCR) == RESET);
+
+	I2C_TransferHandling(I2Cx, slaveAddr, 1, I2C_AutoEnd_Mode, I2C_No_StartStop);
+	while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_TXIS) == RESET);
+
+	I2C_SendData(I2Cx, 0x02);
+
+	while(I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF) == RESET);
+	I2C_ClearFlag(I2Cx, I2C_FLAG_STOPF);
 }
